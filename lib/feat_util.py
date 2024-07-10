@@ -72,7 +72,7 @@ def get_feat_multispecies(df_all, label_recordings_dict):
                     config.data_dir, str(row['id']) + file_format)
                 signal, rate = librosa.load(filename, sr=config.rate)
                 feat = librosa.feature.melspectrogram(
-                    signal, sr=rate, n_mels=config.n_feat)
+                    y=signal, sr=rate, n_mels=config.n_feat)
 #                 feat = librosa.feature.mfcc(y=signal, sr=rate, n_mfcc=n_feat)
                 feat = librosa.power_to_db(feat, ref=np.max)
                 if config.norm_per_sample:

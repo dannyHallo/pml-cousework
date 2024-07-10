@@ -3,91 +3,90 @@ import numpy as np
 import matplotlib.pyplot as plt
 import sklearn
 from sklearn.metrics import confusion_matrix, classification_report
-from sklearn.metrics import precision_recall_curve, plot_precision_recall_curve
+from sklearn.metrics import precision_recall_curve
 from sklearn.metrics import average_precision_score
 import sys
 import os
 import config
 
 
-
 def get_results(y_pred_list, y_test, filename=None, show_plot_PE_MI=True, show_plot_roc=True, show_plot_cm=True, show_plot_pr=True):
     ''' Input: prediction list from model, y_test. y_test is a 1D Torch array (or 1D numpy for Keras).'''
 
-
-    font = {'family' : 'serif',
-            'weight' : 'normal',
-            'size'   : 15}
+    font = {'family': 'serif',
+            'weight': 'normal',
+            'size': 15}
 
     matplotlib.rc('font', **font)
 
-    out = y_pred_list # out: output
+    out = y_pred_list  # out: output
     G_X, U_X, log_prob = active_BALD(np.log(out), y_test, 2)
-
 
     if show_plot_PE_MI:
         start_vis = 0
         end_vis = len(y_test)
-        plt.figure(figsize=(12,5))
-        plt.title('Mean pred, pred_entropy, and MI for samples {from, to}: ' + str(start_vis) + ', ' + str(end_vis))
-        plt.plot(np.arange(start_vis, end_vis), np.mean(out,axis=0)[start_vis:end_vis,1], 'ko', label='$\hat{y}_{mean}$')
-        plt.plot(np.arange(start_vis, end_vis), y_test[start_vis:end_vis], 'r--', label='${y}_{test}$')
-        plt.plot(np.arange(start_vis, end_vis),G_X[start_vis:end_vis], label='pred_entropy')
-        plt.plot(np.arange(start_vis, end_vis),U_X[start_vis:end_vis], label='MI')
+        plt.figure(figsize=(12, 5))
+        plt.title('Mean pred, pred_entropy, and MI for samples {from, to}: ' + str(
+            start_vis) + ', ' + str(end_vis))
+        plt.plot(np.arange(start_vis, end_vis), np.mean(out, axis=0)[
+                 start_vis:end_vis, 1], 'ko', label='$hat{y}_{mean}$')
+        plt.plot(np.arange(start_vis, end_vis),
+                 y_test[start_vis:end_vis], 'r--', label='${y}_{test}$')
+        plt.plot(np.arange(start_vis, end_vis),
+                 G_X[start_vis:end_vis], label='pred_entropy')
+        plt.plot(np.arange(start_vis, end_vis),
+                 U_X[start_vis:end_vis], label='MI')
         plt.xlabel('Feature window')
         plt.legend()
-        plt.savefig(os.path.join(config.plot_dir, filename + '_PE_MI.pdf' ),bbox_inches='tight')
+        plt.savefig(os.path.join(config.plot_dir, filename +
+                    '_PE_MI.pdf'), bbox_inches='tight')
         plt.show()
 
-
     if show_plot_roc:
-        
 
-        roc_score = sklearn.metrics.roc_auc_score(y_test, np.mean(out, axis=0)[:,1])
+        roc_score = sklearn.metrics.roc_auc_score(
+            y_test, np.mean(out, axis=0)[:, 1])
         print("mean ROC AUC:", roc_score)
 
-        plot_roc("Test performance", y_test, np.mean(out, axis=0)[:,1], roc_score, filename, linestyle='--')
+        plot_roc("Test performance", y_test, np.mean(out, axis=0)
+                 [:, 1], roc_score, filename, linestyle='--')
 
         auc_list = []
         for y in y_pred_list:
-            auc_list.append(sklearn.metrics.roc_auc_score(y_test, y[:,1]))
+            auc_list.append(sklearn.metrics.roc_auc_score(y_test, y[:, 1]))
 
         print("std ROC AUC:", np.std(auc_list))
 
-
     if show_plot_pr:
-        plot_pr("Test performance", y_test, np.mean(out, axis=0)[:,1], filename)
+        plot_pr("Test performance", y_test,
+                np.mean(out, axis=0)[:, 1], filename)
 
     if show_plot_cm:
         # Calculate confusion matricies
         cm_list = []
         for i in np.arange(len(out)):
-            cm_list.append(confusion_matrix(y_test, np.argmax(out[i],-1)))
+            cm_list.append(confusion_matrix(y_test, np.argmax(out[i], -1)))
 
         cm = []
         for item in cm_list:
-            cm.append(item.astype('float') / item.sum(axis=1)[:, np.newaxis] *100)
-        cm_mean = np.mean(cm, axis = 0) # Convert mean to normalised percentage
-        cm_std = np.std(cm, axis = 0) # Standard deviation also in percentage
-
+            cm.append(item.astype('float') /
+                      item.sum(axis=1)[:, np.newaxis] * 100)
+        cm_mean = np.mean(cm, axis=0)  # Convert mean to normalised percentage
+        cm_std = np.std(cm, axis=0)  # Standard deviation also in percentage
 
         np.set_printoptions(precision=4)
 
-
-
-
-        class_names= np.array(['Noise', 'Mozz'])
+        class_names = np.array(['Noise', 'Mozz'])
 
         # Plot normalized confusion matrix
-        plot_confusion_matrix(cm_mean,  std=cm_std, classes=class_names, filename=filename, normalize=False)
+        plot_confusion_matrix(
+            cm_mean,  std=cm_std, classes=class_names, filename=filename, normalize=False)
         # plt.tight_layout()
         # plt.savefig('Graphs/cm_RF_BNN.pdf', bbox_inches='tight')
-        
+
         plt.show()
-        
+
     return G_X, U_X, log_prob
-
-
 
 
 def active_BALD(out, X, n_classes):
@@ -96,17 +95,17 @@ def active_BALD(out, X, n_classes):
     score_All = np.zeros((X.shape[0], n_classes))
     All_Entropy = np.zeros((X.shape[0],))
     for d in range(out.shape[0]):
-#         print ('Dropout Iteration', d)
-#         params = unflatten(np.squeeze(out[d]),layer_sizes,nn_weight_index)
+        #         print ('Dropout Iteration', d)
+        #         params = unflatten(np.squeeze(out[d]),layer_sizes,nn_weight_index)
         log_prob[d] = out[d]
         soft_score = np.exp(log_prob[d])
         score_All = score_All + soft_score
-        #computing F_X
+        # computing F_X
         soft_score_log = np.log2(soft_score+10e-15)
         Entropy_Compute = - np.multiply(soft_score, soft_score_log)
         Entropy_Per_samp = np.sum(Entropy_Compute, axis=1)
         All_Entropy = All_Entropy + Entropy_Per_samp
- 
+
     Avg_Pi = np.divide(score_All, out.shape[0])
     Log_Avg_Pi = np.log2(Avg_Pi+10e-15)
     Entropy_Avg_Pi = - np.multiply(Avg_Pi, Log_Avg_Pi)
@@ -120,11 +119,10 @@ def active_BALD(out, X, n_classes):
     return G_X, U_X, log_prob
 
 
-
 def plot_roc(name, labels, predictions, roc_score, filename, **kwargs):
     fp, tp, _ = sklearn.metrics.roc_curve(labels, predictions)
 
-    plt.figure(figsize=(4,4))
+    plt.figure(figsize=(4, 4))
     plt.plot(100*fp, 100*tp, label=name, linewidth=2, **kwargs)
     plt.xlabel('False positives [%]')
     plt.ylabel('True positives [%]')
@@ -134,13 +132,14 @@ def plot_roc(name, labels, predictions, roc_score, filename, **kwargs):
     plt.grid(True)
     ax = plt.gca()
     ax.set_aspect('equal')
-    plt.savefig(os.path.join(config.plot_dir, filename + '_ROC.pdf' ),bbox_inches='tight')
+    plt.savefig(os.path.join(config.plot_dir, filename +
+                '_ROC.pdf'), bbox_inches='tight')
     plt.show()
-    
+
 
 def plot_pr(name, labels, predictions, filename):
     # Plot precision-recall curves
-    
+
     area = average_precision_score(labels, predictions)
     print('PR-AUC: ', area)
     precision, recall, _ = precision_recall_curve(labels, predictions)
@@ -148,9 +147,10 @@ def plot_pr(name, labels, predictions, filename):
     plt.title('AUC={0:0.4f}'.format(area))
     plt.xlabel('Recall')
     plt.ylabel('Precision')
-    plt.savefig(os.path.join(config.plot_dir, filename + '_PR.pdf' ),bbox_inches='tight')
+    plt.savefig(os.path.join(config.plot_dir, filename +
+                '_PR.pdf'), bbox_inches='tight')
     plt.show()
-   
+
 
 def plot_confusion_matrix(cm, classes, std, filename=None,
                           normalize=False, cmap=plt.cm.Blues):
@@ -162,7 +162,7 @@ def plot_confusion_matrix(cm, classes, std, filename=None,
 
 #     std = std * 100
     if normalize:
-        cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis] *100
+        cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis] * 100
 #         std = std.astype('float') / std.sum(axis=1)[:, np.newaxis] *100
         print("Normalized confusion matrix")
     else:
@@ -170,7 +170,7 @@ def plot_confusion_matrix(cm, classes, std, filename=None,
 
     print(cm)
 
-    fig, ax = plt.subplots(figsize=(4,4))
+    fig, ax = plt.subplots(figsize=(4, 4))
     im = ax.imshow(cm, interpolation='nearest', cmap=cmap)
 #     ax.figure.colorbar(im, ax=ax)
     # We want to show all ticks...
@@ -196,34 +196,39 @@ def plot_confusion_matrix(cm, classes, std, filename=None,
                     ha="center", va="center",
                     color="white" if cm[i, j] > thresh else "black")
     fig.tight_layout()
-    plt.savefig(os.path.join(config.plot_dir, filename + '_cm.pdf' ))
+    plt.savefig(os.path.join(config.plot_dir, filename + '_cm.pdf'))
     return ax
-
 
 
 def get_results_multiclass(y_test_CNN, y_pred_CNN, filename, classes):
   # First plot the default confusion matrix and save to text file.
-    with open(os.path.join(config.plot_dir, filename + '_cm.txt' ), "w") as text_file:
-        print(classification_report(y_test_CNN, np.argmax(y_pred_CNN, axis=1)), file=text_file)
-    
+    with open(os.path.join(config.plot_dir, filename + '_cm.txt'), "w") as text_file:
+        print(classification_report(y_test_CNN, np.argmax(
+            y_pred_CNN, axis=1)), file=text_file)
+
     # Now plot multi-class ROC:
-    compute_plot_roc_multiclass(y_test_CNN, y_pred_CNN, filename, classes, title=None)
+    compute_plot_roc_multiclass(
+        y_test_CNN, y_pred_CNN, filename, classes, title=None)
 
     # Plot also precision-recall curves:
-    compute_plot_pr_multiclass(y_test_CNN, y_pred_CNN, filename, classes, title=None)
-    
-    # Calculate confusion matrix
-    cnf_matrix_unnorm = confusion_matrix(y_test_CNN, np.argmax(y_pred_CNN, axis=1))
+    compute_plot_pr_multiclass(
+        y_test_CNN, y_pred_CNN, filename, classes, title=None)
 
-    # Now normalise 
+    # Calculate confusion matrix
+    cnf_matrix_unnorm = confusion_matrix(
+        y_test_CNN, np.argmax(y_pred_CNN, axis=1))
+
+    # Now normalise
     cnf_matrix = cnf_matrix_unnorm/cnf_matrix_unnorm.sum(1)
     fig = plt.figure(figsize=(15, 8))
-    plt.imshow(cnf_matrix, cmap=plt.cm.Blues) #plot confusion matrix grid
-    threshold = cnf_matrix.max() / 2 #threshold to define text color
-    for i in range(cnf_matrix.shape[0]): #print text in grid
-        for j in range(cnf_matrix.shape[1]): 
-            plt.text(j-0.2, i, cnf_matrix_unnorm[i,j], color="w" if cnf_matrix[i,j] > threshold else 'black')
-    tick_marks = np.arange(len(classes)) #define labeling spacing based on number of classes
+    plt.imshow(cnf_matrix, cmap=plt.cm.Blues)  # plot confusion matrix grid
+    threshold = cnf_matrix.max() / 2  # threshold to define text color
+    for i in range(cnf_matrix.shape[0]):  # print text in grid
+        for j in range(cnf_matrix.shape[1]):
+            plt.text(
+                j-0.2, i, cnf_matrix_unnorm[i, j], color="w" if cnf_matrix[i, j] > threshold else 'black')
+    # define labeling spacing based on number of classes
+    tick_marks = np.arange(len(classes))
     plt.xticks(tick_marks, classes, rotation=45)
     plt.yticks(tick_marks, classes)
     plt.ylabel('True label')
@@ -231,8 +236,9 @@ def get_results_multiclass(y_test_CNN, y_pred_CNN, filename, classes):
     plt.xlabel('Predicted label')
 #   plt.colorbar(label='Accuracy')
     plt.tight_layout()
-    plt.savefig(os.path.join(config.plot_dir, filename + '_MSC_cm.pdf' ),bbox_inches='tight')
-  
+    plt.savefig(os.path.join(config.plot_dir, filename +
+                '_MSC_cm.pdf'), bbox_inches='tight')
+
     return fig
 
 
@@ -242,15 +248,17 @@ def compute_plot_roc_multiclass(y_true, y_pred_prob, filename, classes, title=No
     tpr = dict()
     roc_auc = dict()
     for i in range(len(classes)):
-        fpr[i], tpr[i], _ = sklearn.metrics.roc_curve(to_categorical(y_true)[:, i], y_pred_prob[:, i])
+        fpr[i], tpr[i], _ = sklearn.metrics.roc_curve(
+            to_categorical(y_true)[:, i], y_pred_prob[:, i])
         roc_auc[i] = sklearn.metrics.auc(fpr[i], tpr[i])
 
     # Compute micro-average ROC curve and ROC area
-    fpr["micro"], tpr["micro"], _ = sklearn.metrics.roc_curve(to_categorical(y_true).ravel(), y_pred_prob.ravel())
+    fpr["micro"], tpr["micro"], _ = sklearn.metrics.roc_curve(
+        to_categorical(y_true).ravel(), y_pred_prob.ravel())
     roc_auc["micro"] = sklearn.metrics.auc(fpr["micro"], tpr["micro"])
-    with open(os.path.join(config.plot_dir, filename + '_roc.txt' ), "w") as text_file:
+    with open(os.path.join(config.plot_dir, filename + '_roc.txt'), "w") as text_file:
         print(roc_auc, file=text_file)
-    lw=2
+    lw = 2
     # First aggregate all false positive rates
     all_fpr = np.unique(np.concatenate([fpr[i] for i in range(len(classes))]))
 
@@ -291,10 +299,9 @@ def compute_plot_roc_multiclass(y_true, y_pred_prob, filename, classes, title=No
     plt.ylabel('True Positive Rate')
     plt.title(title)
     plt.legend(loc="lower right")
-    plt.savefig(os.path.join(config.plot_dir, filename + '_MSC_ROC.pdf' ),bbox_inches='tight')
+    plt.savefig(os.path.join(config.plot_dir, filename +
+                '_MSC_ROC.pdf'), bbox_inches='tight')
     plt.show()
-
-
 
 
 def compute_plot_pr_multiclass(y_true, y_pred_prob, filename, classes, title=None):
@@ -308,16 +315,16 @@ def compute_plot_pr_multiclass(y_true, y_pred_prob, filename, classes, title=Non
     for i in range(n_classes):
         precision[i], recall[i], _ = precision_recall_curve(Y_test[:, i],
                                                             y_score[:, i])
-        average_precision[i] = average_precision_score(Y_test[:, i], y_score[:, i])
+        average_precision[i] = average_precision_score(
+            Y_test[:, i], y_score[:, i])
 
     # A "micro-average": quantifying score on all classes jointly
     precision["micro"], recall["micro"], _ = precision_recall_curve(Y_test.ravel(),
-        y_score.ravel())
+                                                                    y_score.ravel())
     average_precision["micro"] = average_precision_score(Y_test, y_score,
                                                          average="micro")
-    
 
-    with open(os.path.join(config.plot_dir, filename + '_pr.txt' ), "w") as text_file:
+    with open(os.path.join(config.plot_dir, filename + '_pr.txt'), "w") as text_file:
         print(average_precision, file=text_file)
 
     plt.figure(figsize=(7, 8))
@@ -352,14 +359,11 @@ def compute_plot_pr_multiclass(y_true, y_pred_prob, filename, classes, title=Non
     plt.title('Extension of Precision-Recall curve to multi-class')
     plt.legend(lines, labels, loc='center left', bbox_to_anchor=(1, 0.5))
 
-    plt.savefig(os.path.join(config.plot_dir, filename + '_MSC_PR.pdf' ),bbox_inches='tight')
-
-
-
-
-
+    plt.savefig(os.path.join(config.plot_dir, filename +
+                '_MSC_PR.pdf'), bbox_inches='tight')
 
     # Tools for reshaping data:
+
 
 def to_categorical(y, num_classes=None, dtype='float32'):
     """Converts a class vector (integers) to binary class matrix.
@@ -415,21 +419,28 @@ def evaluate_model_aggregated(model, X_test, y_test, n_samples):
     preds_aggregated_by_mean = []
     y_aggregated_prediction_by_mean = []
     y_target_aggregated = []
-    
+
     for idx, recording in enumerate(X_test):
-        n_target_windows = len(recording)//2  # Calculate expected length: discard edge
-        y_target = np.repeat(y_test[idx],n_target_windows) # Create y array of correct length
-        preds = evaluate_model(model, recording, np.repeat(y_test[idx],len(recording)),n_samples) # Sample BNN
-        preds = np.mean(preds, axis=0) # Average across BNN samples
-        preds = preds[:n_target_windows*2,:] # Discard edge case
-        preds = np.mean(preds.reshape(-1,2,n_classes), axis=1) # Average every 2 elements, across n_classes
-        preds_y = np.argmax(preds, axis=1)  # Append argmax prediction (label output)
+        # Calculate expected length: discard edge
+        n_target_windows = len(recording)//2
+        # Create y array of correct length
+        y_target = np.repeat(y_test[idx], n_target_windows)
+        preds = evaluate_model(model, recording, np.repeat(
+            y_test[idx], len(recording)), n_samples)  # Sample BNN
+        preds = np.mean(preds, axis=0)  # Average across BNN samples
+        preds = preds[:n_target_windows*2, :]  # Discard edge case
+        # Average every 2 elements, across n_classes
+        preds = np.mean(preds.reshape(-1, 2, n_classes), axis=1)
+        # Append argmax prediction (label output)
+        preds_y = np.argmax(preds, axis=1)
         y_aggregated_prediction_by_mean.append(preds_y)
-        preds_aggregated_by_mean.append(preds)  # Append prob (or log-prob/other space)
+        # Append prob (or log-prob/other space)
+        preds_aggregated_by_mean.append(preds)
         y_target_aggregated.append(y_target)  # Append y_target
     return np.concatenate(preds_aggregated_by_mean), np.concatenate(y_aggregated_prediction_by_mean), np.concatenate(y_target_aggregated)
 
 # Helper function to run evaluate_model_aggregated for Keras models
+
 
 def evaluate_model(model, X_test, y_test, n_samples):
     all_y_pred = []
