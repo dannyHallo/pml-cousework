@@ -1,5 +1,4 @@
 from PyTorch.ResNetDropoutSource import resnet50dropout, resnet18
-from PyTorch.vggish.vggish import VGGish
 from torch.utils.data import TensorDataset, DataLoader
 import torch.nn.functional as F
 import torch.nn as nn
@@ -52,42 +51,42 @@ class Resnet18DropoutFull(nn.Module):
         x = torch.sigmoid(x)
         return x
 
-class VGGishDropout(nn.Module):
-    def __init__(self, preprocess=False, dropout=0.2):
-        super(VGGishDropout, self).__init__()
-        self.model_urls = config_pytorch.vggish_model_urls
-        self.vggish = VGGish(self.model_urls, postprocess=False, preprocess=preprocess)
-        self.dropout = dropout
-        self.n_channels = 1  # For building data correctly with dataloaders
-        self.fc1 = nn.Linear(128, 1)
-    def forward(self, x):
-        n_segments = x.shape[1]
-        ##(Batch, Segments, C, H, W) -> (Batch*Segments, C, H, W)
-        x = x.view(-1, 1, 96, 64)
-        x = self.vggish.forward(x)
-        x = self.fc1(F.dropout(x, p=self.dropout))
-        x = torch.sigmoid(x)
-        return x
+# class VGGishDropout(nn.Module):
+#     def __init__(self, preprocess=False, dropout=0.2):
+#         super(VGGishDropout, self).__init__()
+#         self.model_urls = config_pytorch.vggish_model_urls
+#         self.vggish = VGGish(self.model_urls, postprocess=False, preprocess=preprocess)
+#         self.dropout = dropout
+#         self.n_channels = 1  # For building data correctly with dataloaders
+#         self.fc1 = nn.Linear(128, 1)
+#     def forward(self, x):
+#         n_segments = x.shape[1]
+#         ##(Batch, Segments, C, H, W) -> (Batch*Segments, C, H, W)
+#         x = x.view(-1, 1, 96, 64)
+#         x = self.vggish.forward(x)
+#         x = self.fc1(F.dropout(x, p=self.dropout))
+#         x = torch.sigmoid(x)
+#         return x
 
-class VGGishDropoutFeatB(nn.Module):
-    def __init__(self, preprocess=False, dropout=0.2):
-        super(VGGishDropoutFeatB, self).__init__()
-        self.model_urls = config_pytorch.vggish_model_urls
-        self.vggish = VGGish(self.model_urls, pretrained=config_pytorch.pretrained, postprocess=False, preprocess=preprocess)
-        # self.vggish = nn.Sequential(*(list(self.vggish.children())[2:])) # skip layers
-        self.vggish.embeddings = nn.Sequential(*(list(self.vggish.embeddings.children())[2:])) # skip layers
-        self.dropout = dropout
-        self.n_channels = 1  # For building data correctly with dataloaders
-        self.fc1 = nn.Linear(128, 1)  # for multiclass
-        # For application to embeddings, see:
-        #https://github.com/tensorflow/models/blob/master/research/audioset/vggish/vggish_train_demo.py
-    def forward(self, x):
-        n_segments = x.shape[1]
-        x = x.view(-1, 1, 30, 128) # Feat B
-        x = self.vggish.forward(x) 
-        x = self.fc1(F.dropout(x, p=self.dropout))
-        x = torch.sigmoid(x)
-        return x
+# class VGGishDropoutFeatB(nn.Module):
+#     def __init__(self, preprocess=False, dropout=0.2):
+#         super(VGGishDropoutFeatB, self).__init__()
+#         self.model_urls = config_pytorch.vggish_model_urls
+#         self.vggish = VGGish(self.model_urls, pretrained=config_pytorch.pretrained, postprocess=False, preprocess=preprocess)
+#         # self.vggish = nn.Sequential(*(list(self.vggish.children())[2:])) # skip layers
+#         self.vggish.embeddings = nn.Sequential(*(list(self.vggish.embeddings.children())[2:])) # skip layers
+#         self.dropout = dropout
+#         self.n_channels = 1  # For building data correctly with dataloaders
+#         self.fc1 = nn.Linear(128, 1)  # for multiclass
+#         # For application to embeddings, see:
+#         #https://github.com/tensorflow/models/blob/master/research/audioset/vggish/vggish_train_demo.py
+#     def forward(self, x):
+#         n_segments = x.shape[1]
+#         x = x.view(-1, 1, 30, 128) # Feat B
+#         x = self.vggish.forward(x) 
+#         x = self.fc1(F.dropout(x, p=self.dropout))
+#         x = torch.sigmoid(x)
+#         return x
 
 
 def build_dataloader(x_train, y_train, x_val=None, y_val=None, shuffle=True, n_channels=1):
