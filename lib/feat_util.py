@@ -73,7 +73,6 @@ def get_feat_multi_class(df_all, label_recordings_dict):
                 signal, rate = librosa.load(filename, sr=config.rate)
                 feat = librosa.feature.melspectrogram(
                     y=signal, sr=rate, n_mels=config.n_feat)
-#                 feat = librosa.feature.mfcc(y=signal, sr=rate, n_mfcc=n_feat)
                 feat = librosa.power_to_db(feat, ref=np.max)
                 if config.norm_per_sample:
                     feat = (feat-np.mean(feat))/np.std(feat)

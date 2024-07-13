@@ -352,7 +352,6 @@ def load_model(filepath, model=Resnet(config_pytorch.n_classes)):
         'cuda:0' if torch.cuda.is_available() else torch.device("cpu"))
     print(f'Training on {device}')
 
-    # model = ResnetDropoutFull(config_pytorch.n_classes)
     if torch.cuda.device_count() > 1:
         print("Using data parallel")
         model = nn.DataParallel(model, device_ids=list(
