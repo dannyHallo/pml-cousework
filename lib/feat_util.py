@@ -85,10 +85,10 @@ def get_feat_multispecies(df_all, label_recordings_dict):
 def get_train_test_multispecies(df_all, classes, random_seed,  train_fraction=0.75):
     '''Extract features for multi-class species classification.'''
 
-    pickle_name_train = 'Feat_B_' + str(random_seed) + '_train.pickle'
-    pickle_name_test = 'Feat_B_' + str(random_seed) + '_test.pickle'
+    pickle_name_train = 'feat_with_seed_' + str(random_seed) + '_train.pickle'
+    pickle_name_test = 'feat_with_seed_' + str(random_seed) + '_test.pickle'
 
-    if not os.path.isfile(os.path.join(config.dir_out_MSC, pickle_name_train)):
+    if not os.path.isfile(os.path.join(config.feature_save_dir, pickle_name_train)):
         print('Extracting train features...')
         species_dict = collections.OrderedDict()
         species_recordings = collections.OrderedDict()
@@ -119,28 +119,28 @@ def get_train_test_multispecies(df_all, classes, random_seed,  train_fraction=0.
 
         feat_train = {"X_train": X_train, "y_train": y_train}
 
-        with open(os.path.join(config.dir_out_MSC, pickle_name_train), 'wb') as f:
+        with open(os.path.join(config.feature_save_dir, pickle_name_train), 'wb') as f:
             pickle.dump(feat_train, f, protocol=4)
             print('Saved features to:', os.path.join(
-                config.dir_out_MSC, pickle_name_train))
+                config.feature_save_dir, pickle_name_train))
     else:
-        with open(os.path.join(config.dir_out_MSC, pickle_name_train), 'rb') as input_file:
+        with open(os.path.join(config.feature_save_dir, pickle_name_train), 'rb') as input_file:
             log_mel_feat = pickle.load(input_file)
             X_train = log_mel_feat["X_train"]
             y_train = log_mel_feat["y_train"]
 
-    if not os.path.isfile(os.path.join(config.dir_out_MSC, pickle_name_test)):
+    if not os.path.isfile(os.path.join(config.feature_save_dir, pickle_name_test)):
 
         print('Extracting test features...')
         X_test, y_test = get_feat_multispecies(df_all, test_recordings)
 
         feat_test = {"X_test": X_test, "y_test": y_test}
-        with open(os.path.join(config.dir_out_MSC, pickle_name_test), 'wb') as f:
+        with open(os.path.join(config.feature_save_dir, pickle_name_test), 'wb') as f:
             pickle.dump(feat_test, f, protocol=4)
             print('Saved features to:', os.path.join(
-                config.dir_out_MSC, pickle_name_test))
+                config.feature_save_dir, pickle_name_test))
     else:
-        with open(os.path.join(config.dir_out_MSC, pickle_name_test), 'rb') as input_file:
+        with open(os.path.join(config.feature_save_dir, pickle_name_test), 'rb') as input_file:
             log_mel_feat = pickle.load(input_file)
             X_test = log_mel_feat["X_test"]
             y_test = log_mel_feat["y_test"]

@@ -7,12 +7,7 @@ plot_dir = os.path.join(os.path.pardir, 'outputs',  'plots')
 # Model sub-directory created in config_keras or config_pytorch
 model_dir = os.path.join(os.path.pardir, 'outputs', 'models')
 
-# Librosa settings
-# Feature output directory
-# sub-directory for mosquito event_detection
-dir_out_MED = os.path.join(os.path.pardir, 'outputs', 'features', 'MED')
-# sub-directory for mosquito species classification
-dir_out_MSC = os.path.join(os.path.pardir, 'outputs', 'features', 'MSC')
+feature_save_dir = os.path.join(os.path.pardir, 'outputs', 'features')
 
 rate = 8000
 win_size = 30
@@ -24,7 +19,6 @@ frame_duration = n_hop/rate  # Frame duration in ms
 # Normalisation
 norm_per_sample = True
 
-
 # Calculating window size based on desired min duration (sample chunks)
 # default at 8000Hz: 2048 NFFT -> NFFT/4 for window size = hop length in librosa.
 # Recommend lowering NFFT to 1024 so that the default hop length is 256 (or 32 ms).
@@ -33,7 +27,7 @@ norm_per_sample = True
 min_duration = win_size * frame_duration  # Change to match 1.92 (later)
 
 # Create directories if they do not exist:
-for directory in [plot_dir, dir_out_MED, dir_out_MSC, model_dir]:
+for directory in [plot_dir, feature_save_dir, model_dir]:
     if not os.path.isdir(directory):
         os.mkdir(directory)
         print('Created directory:', directory)
