@@ -56,8 +56,8 @@ def get_feat(data_df, data_dir, rate, min_duration, n_feat):
     return X, y, skipped_files, bugs
 
 
-def get_feat_multispecies(df_all, label_recordings_dict):
-    '''Extract features for multi-class species classification.'''
+def get_feat_multi_class(df_all, label_recordings_dict):
+    '''Extract features for multi-class classification.'''
     X = []
     y = []
 
@@ -82,40 +82,39 @@ def get_feat_multispecies(df_all, label_recordings_dict):
     return X, y
 
 
-def get_train_test_multispecies(df_all, classes, random_seed,  train_fraction=0.75):
-    '''Extract features for multi-class species classification.'''
+def get_train_test_with_selector(df_all, column_name, class_names, random_seed,  train_fraction=0.75):
+    '''Extract features for multi-class classification.'''
 
-    pickle_name_train = 'feat_with_seed_' + str(random_seed) + '_train.pickle'
-    pickle_name_test = 'feat_with_seed_' + str(random_seed) + '_test.pickle'
+    pickle_name_train = f'feat_{column_name}_sd_{random_seed}_train.pickle'
+    pickle_name_test = f'feat_{column_name}_sd_{random_seed}_test.pickle'
 
     if not os.path.isfile(os.path.join(config.feature_save_dir, pickle_name_train)):
         print('Extracting train features...')
-        species_dict = collections.OrderedDict()
-        species_recordings = collections.OrderedDict()
-        for species in classes:
-            # Number of total audio clips per species (includes repeats from same filename)
-            # Number of unique audio recordings (and hence mosquitoes)
-            species_recordings[species] = len(
-                pd.unique(df_all[df_all.species == species].name))
-            species_dict[species] = sum(
-                df_all[df_all.species == species].length)
+        _dict = collections.OrderedDict()
+        _recordings = collections.OrderedDict()
+        for class_name in class_names:
+            _recordings[class_name] = len(
+                pd.unique(df_all[df_all[column_name] == class_name].name))
+            _dict[class_name] = sum(
+                df_all[df_all[column_name] == class_name].length)
 
         # Divide recordings into train and test, with recording shuffling fixed by random_state
         train_recordings = {}
         test_recordings = {}
 
-        print('Species, train unique mosquitoes, test unique mosquitoes')
-        for i in range(len(classes)):
-            n_train = int(species_recordings[classes[i]] * train_fraction)
-            n_test = species_recordings[classes[i]] - n_train
-            print(classes[i], n_train, n_test)
-            df_class = df_all[df_all.species == classes[i]]
+        print('class name, train count, test count')
+        for i in range(len(class_names)):
+            class_name = class_names[i]
+            n_train = int(_recordings[class_name] * train_fraction)
+            n_test = _recordings[class_name] - n_train
+            print(class_name, n_train, n_test)
+            df_class = df_all[df_all[column_name] == class_name]
             train_recordings[i] = shuffle(
                 pd.unique(df_class.name), random_state=random_seed)[:n_train]
             test_recordings[i] = shuffle(
                 pd.unique(df_class.name), random_state=random_seed)[n_train:]
 
-        X_train, y_train = get_feat_multispecies(df_all, train_recordings)
+        X_train, y_train = get_feat_multi_class(df_all, train_recordings)
 
         feat_train = {"X_train": X_train, "y_train": y_train}
 
@@ -132,7 +131,7 @@ def get_train_test_multispecies(df_all, classes, random_seed,  train_fraction=0.
     if not os.path.isfile(os.path.join(config.feature_save_dir, pickle_name_test)):
 
         print('Extracting test features...')
-        X_test, y_test = get_feat_multispecies(df_all, test_recordings)
+        X_test, y_test = get_feat_multi_class(df_all, test_recordings)
 
         feat_test = {"X_test": X_test, "y_test": y_test}
         with open(os.path.join(config.feature_save_dir, pickle_name_test), 'wb') as f:
@@ -147,44 +146,6 @@ def get_train_test_multispecies(df_all, classes, random_seed,  train_fraction=0.
 
     return X_train, y_train, X_test, y_test
 
-
-def get_signal(data_df, data_dir, rate, min_duration):
-    ''' Returns raw audio with Librosa, and corresponding label longer than min_duration '''
-
-    X = []
-    y = []
-    idx = 0
-    bugs = []
-    skipped_files = []
-    label_dict = {}
-    for row_idx_series in data_df.iterrows():
-        row = row_idx_series[1]
-        label_duration = row['length']
-        if label_duration > min_duration:
-            _, file_format = os.path.splitext(row['name'])
-            filename = os.path.join(data_dir, str(row['id']) + file_format)
-
-            length = librosa.get_duration(filename=filename)
-#             assert math.isclose(length,label_duration, rel_tol=0.01), "File: %s label duration (%.4f) does not match audio length (%.4f)" % (row['path'], label_duration, length)
-
-            if math.isclose(length, label_duration, rel_tol=0.01):
-                signal, rate = librosa.load(filename, sr=rate)
-                label_dict[idx] = [row['id'], row['name'], row['length']]
-                idx += 1
-                X.append(signal)
-                if row['sound_type'] == 'mosquito':
-                    y.append(1)
-                # Condition to check we are not adding empty (or unexpected) labels as 0
-                elif row['sound_type']:
-                    y.append(0)
-            else:
-                print("File: %s label duration (%.4f) does not match audio length (%.4f)" % (
-                    row['name'], label_duration, length))
-                bugs.append([row['name'], label_duration, length])
-
-        else:
-            skipped_files.append([row['id'], row['name'], label_duration])
-    return X, y, label_dict, skipped_files, bugs
 
 
 def reshape_feat(feats, labels, win_size, step_size):
@@ -205,126 +166,3 @@ def reshape_feat(feats, labels, win_size, step_size):
             feats_windowed_array.append(feats_windowed)
             labels_windowed_array.append(labels_windowed)
     return np.vstack(feats_windowed_array), np.hstack(labels_windowed_array)
-
-
-# def get_train_test_from_df(df_train, df_test_A, df_test_B, debug=False):
-
-#     pickle_name_train = 'log_mel_feat_train_'+str(config.n_feat)+'_win_'+str(
-#         config.win_size)+'_step_'+str(config.step_size)+'_norm_'+str(config.norm_per_sample)+'.pickle'
-#     # step = window for test (no augmentation of test):
-#     pickle_name_test = 'log_mel_feat_test_'+str(config.n_feat)+'_win_'+str(
-#         config.win_size)+'_step_'+str(config.win_size)+'_norm_'+str(config.norm_per_sample)+'.pickle'
-
-#     if not os.path.isfile(os.path.join(config.dir_out_MED, pickle_name_train)):
-#         print('Extracting training features...')
-#         X_train, y_train, skipped_files_train, bugs_train = get_feat(data_df=df_train, data_dir=config.data_dir,
-#                                                                      rate=config.rate, min_duration=config.min_duration,
-#                                                                      n_feat=config.n_feat)
-#         X_train, y_train = reshape_feat(
-#             X_train, y_train, config.win_size, config.step_size)
-
-#         log_mel_feat_train = {'X_train': X_train,
-#                               'y_train': y_train, 'bugs_train': bugs_train}
-
-#         if debug:
-#             print('Bugs train', bugs_train)
-
-#         with open(os.path.join(config.dir_out_MED, pickle_name_train), 'wb') as f:
-#             pickle.dump(log_mel_feat_train, f, protocol=4)
-#             print('Saved features to:', os.path.join(
-#                 config.dir_out_MED, pickle_name_train))
-
-#     else:
-#         print('Loading training features found at:',
-#               os.path.join(config.dir_out_MED, pickle_name_train))
-#         with open(os.path.join(config.dir_out_MED, pickle_name_train), 'rb') as input_file:
-#             log_mel_feat = pickle.load(input_file)
-#             X_train = log_mel_feat['X_train']
-#             y_train = log_mel_feat['y_train']
-
-#     if not os.path.isfile(os.path.join(config.dir_out_MED, pickle_name_test)):
-#         print('Extracting test features...')
-
-#         X_test_A, y_test_A, skipped_files_test_A, bugs_test_A = get_feat(data_df=df_test_A, data_dir=config.data_dir,
-#                                                                          rate=config.rate, min_duration=config.min_duration,
-#                                                                          n_feat=config.n_feat)
-#         X_test_B, y_test_B, skipped_files_test_B, bugs_test_B = get_feat(data_df=df_test_B, data_dir=config.data_dir,
-#                                                                          rate=config.rate, min_duration=config.min_duration,
-#                                                                          n_feat=config.n_feat)
-#         # Test should be strided with step = window.
-#         X_test_A, y_test_A = reshape_feat(
-#             X_test_A, y_test_A, config.win_size, config.win_size)
-#         X_test_B, y_test_B = reshape_feat(
-#             X_test_B, y_test_B, config.win_size, config.win_size)
-
-#         log_mel_feat_test = {'X_test_A': X_test_A, 'X_test_B': X_test_B,
-#                              'y_test_A': y_test_A, 'y_test_B': y_test_B}
-
-#         if debug:
-#             print('Bugs test A', bugs_test_A)
-#             print('Bugs test B', bugs_test_B)
-
-#         with open(os.path.join(config.dir_out_MED, pickle_name_test), 'wb') as f:
-#             pickle.dump(log_mel_feat_test, f, protocol=4)
-#             print('Saved features to:', os.path.join(
-#                 config.dir_out_MED, pickle_name_test))
-#     else:
-#         print('Loading test features found at:', os.path.join(
-#             config.dir_out_MED, pickle_name_test))
-#         with open(os.path.join(config.dir_out_MED, pickle_name_test), 'rb') as input_file:
-#             log_mel_feat = pickle.load(input_file)
-
-#             X_test_A = log_mel_feat['X_test_A']
-#             y_test_A = log_mel_feat['y_test_A']
-#             X_test_B = log_mel_feat['X_test_B']
-#             y_test_B = log_mel_feat['y_test_B']
-
-#     return X_train, y_train, X_test_A, y_test_A, X_test_B, y_test_B
-
-
-# def get_test_from_df(df_test_A, df_test_B, debug=False, pickle_name=None):
-
-#     if not pickle_name:
-#         pickle_name_test = 'log_mel_feat_test_'+str(config.n_feat)+'_win_'+str(
-#             config.win_size)+'_step_'+str(config.win_size)+'_norm_'+str(config.norm_per_sample)+'.pickle'
-#     else:
-#         pickle_name_test = pickle_name
-
-#     if not os.path.isfile(os.path.join(config.dir_out_MED, pickle_name_test)):
-#         print('Extracting test features...')
-
-#         X_test_A, y_test_A, skipped_files_test_A, bugs_test_A = get_feat(data_df=df_test_A, data_dir=config.data_dir,
-#                                                                          rate=config.rate, min_duration=config.min_duration,
-#                                                                          n_feat=config.n_feat)
-#         X_test_B, y_test_B, skipped_files_test_B, bugs_test_B = get_feat(data_df=df_test_B, data_dir=config.data_dir,
-#                                                                          rate=config.rate, min_duration=config.min_duration,
-#                                                                          n_feat=config.n_feat)
-#         # Test should be strided with step = window.
-#         X_test_A, y_test_A = reshape_feat(
-#             X_test_A, y_test_A, config.win_size, config.win_size)
-#         X_test_B, y_test_B = reshape_feat(
-#             X_test_B, y_test_B, config.win_size, config.win_size)
-
-#         log_mel_feat_test = {'X_test_A': X_test_A, 'X_test_B': X_test_B,
-#                              'y_test_A': y_test_A, 'y_test_B': y_test_B}
-
-#         if debug:
-#             print('Bugs test A', bugs_test_A)
-#             print('Bugs test B', bugs_test_B)
-
-#         with open(os.path.join(config.dir_out_MED, pickle_name_test), 'wb') as f:
-#             pickle.dump(log_mel_feat_test, f)
-#             print('Saved features to:', os.path.join(
-#                 config.dir_out_MED, pickle_name_test))
-#     else:
-#         print('Loading test features found at:', os.path.join(
-#             config.dir_out_MED, pickle_name_test))
-#         with open(os.path.join(config.dir_out_MED, pickle_name_test), 'rb') as input_file:
-#             log_mel_feat = pickle.load(input_file)
-
-#             X_test_A = log_mel_feat['X_test_A']
-#             y_test_A = log_mel_feat['y_test_A']
-#             X_test_B = log_mel_feat['X_test_B']
-#             y_test_B = log_mel_feat['y_test_B']
-
-#     return X_test_A, y_test_A, X_test_B, y_test_B

@@ -5,5 +5,4 @@ epochs = 50
 batch_size = 32
 pretrained = True
 
-n_classes = 6
-epochs = 100
+n_classes = 3
