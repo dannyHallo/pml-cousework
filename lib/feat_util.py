@@ -62,22 +62,22 @@ def get_feat_multi_class(df_all, label_recordings_dict):
     y = []
 
     for class_label in label_recordings_dict.keys():  # Loop over classes
-        print('Extracting features for class:', class_label)
         # Loop over recordings in class
         for i in label_recordings_dict[class_label]:
-            df_match = df_all[df_all.name == i]
-            for idx, row in df_match.iterrows():  # Loop over clips in recording
-                _, file_format = os.path.splitext(row['name'])
-                filename = os.path.join(
-                    config.data_dir, str(row['id']) + file_format)
-                signal, rate = librosa.load(filename, sr=config.rate)
-                feat = librosa.feature.melspectrogram(
-                    y=signal, sr=rate, n_mels=config.n_feat)
-                feat = librosa.power_to_db(feat, ref=np.max)
-                if config.norm_per_sample:
-                    feat = (feat-np.mean(feat))/np.std(feat)
-                X.append(feat)
-                y.append(class_label)
+            row = df_all[df_all.id == i].iloc[0]
+
+            _, file_format = os.path.splitext(row['name'])
+            filename = os.path.join(
+                config.data_dir, str(row['id']) + file_format)
+            signal, rate = librosa.load(filename, sr=config.rate)
+            feat = librosa.feature.melspectrogram(
+                y=signal, sr=rate, n_mels=config.n_feat)
+            feat = librosa.power_to_db(feat, ref=np.max)
+            if config.norm_per_sample:
+                feat = (feat-np.mean(feat))/np.std(feat)
+            X.append(feat)
+            y.append(class_label)
+
     return X, y
 
 
@@ -89,29 +89,30 @@ def get_train_test_with_selector(df_all, column_name, class_names, random_seed, 
 
     if not os.path.isfile(os.path.join(config.feature_save_dir, pickle_name_train)):
         print('Extracting train features...')
-        _dict = collections.OrderedDict()
         _recordings = collections.OrderedDict()
         for class_name in class_names:
-            _recordings[class_name] = len(
-                pd.unique(df_all[df_all[column_name] == class_name].name))
-            _dict[class_name] = sum(
-                df_all[df_all[column_name] == class_name].length)
+            rows = df_all[df_all[column_name] == class_name]
+            ids = pd.unique(rows.id)
+            print(class_name, len(ids))
+            _recordings[class_name] = ids
 
         # Divide recordings into train and test, with recording shuffling fixed by random_state
         train_recordings = {}
         test_recordings = {}
 
         print('class name, train count, test count')
+
         for i in range(len(class_names)):
             class_name = class_names[i]
-            n_train = int(_recordings[class_name] * train_fraction)
-            n_test = _recordings[class_name] - n_train
+            total_id_count = len(_recordings[class_name])
+            n_train = int(total_id_count * train_fraction)
+            n_test = total_id_count - n_train
             print(class_name, n_train, n_test)
-            df_class = df_all[df_all[column_name] == class_name]
+
             train_recordings[i] = shuffle(
-                pd.unique(df_class.name), random_state=random_seed)[:n_train]
+                _recordings[class_name], random_state=random_seed)[:n_train]
             test_recordings[i] = shuffle(
-                pd.unique(df_class.name), random_state=random_seed)[n_train:]
+                _recordings[class_name], random_state=random_seed)[n_train:]
 
         X_train, y_train = get_feat_multi_class(df_all, train_recordings)
 
@@ -144,7 +145,6 @@ def get_train_test_with_selector(df_all, column_name, class_names, random_seed, 
             y_test = log_mel_feat["y_test"]
 
     return X_train, y_train, X_test, y_test
-
 
 
 def reshape_feat(feats, labels, win_size, step_size):
